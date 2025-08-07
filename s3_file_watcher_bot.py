@@ -1,6 +1,5 @@
 import os
 import json
-import asyncio
 from datetime import datetime, timezone
 
 import discord
@@ -8,10 +7,10 @@ import boto3
 from discord.ext import tasks, commands
 from dotenv import load_dotenv
 
-# Load environment variables
+# Load .env variables
 load_dotenv()
 
-# Config
+# Environment configuration
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 DISCORD_CHANNEL_ID = int(os.getenv("DISCORD_CHANNEL_ID"))
 
@@ -20,10 +19,10 @@ AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 S3_ENDPOINT = os.getenv("S3_ENDPOINT")
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
 
-# Persistence file
+# File used to track already-sent files
 SENT_FILES_PATH = "sent_files.json"
 
-# Load sent files from disk
+# Load sent files on startup
 def load_sent_files():
     if os.path.exists(SENT_FILES_PATH):
         with open(SENT_FILES_PATH, "r") as f:
@@ -35,10 +34,10 @@ def save_sent_files(files):
     with open(SENT_FILES_PATH, "w") as f:
         json.dump(list(files), f)
 
-# Initialize
+# Global set for tracking
 sent_files = load_sent_files()
 
-# S3 client
+# Setup S3 client
 s3 = boto3.client(
     's3',
     aws_access_key_id=AWS_ACCESS_KEY_ID,
@@ -46,7 +45,7 @@ s3 = boto3.client(
     endpoint_url=S3_ENDPOINT
 )
 
-# Discord bot setup
+# Setup Discord bot
 intents = discord.Intents.default()
 bot = commands.Bot(command_prefix="!", intents=intents)
 
@@ -58,7 +57,8 @@ def get_file_metadata(obj):
 
 
 def build_download_url(filename):
-    return f"{S3_ENDPOINT}/{S3_BUCKET_NAME}/{filename}"
+    # Contabo public URL format: <endpoint>/<access_key>:<bucket>/<filename>
+    return f"{S3_ENDPOINT}/{AWS_ACCESS_KEY_ID}:{S3_BUCKET_NAME}/{filename}"
 
 
 async def send_file_embed(channel, filename, size_mb, timestamp, download_url):
@@ -80,9 +80,10 @@ async def monitor_bucket():
 
     try:
         response = s3.list_objects_v2(Bucket=S3_BUCKET_NAME)
+        contents = response.get("Contents", [])
         new_files = []
 
-        for obj in response.get('Contents', []):
+        for obj in contents:
             key = obj['Key']
             if key not in sent_files:
                 sent_files.add(key)
@@ -91,6 +92,7 @@ async def monitor_bucket():
         if new_files:
             save_sent_files(sent_files)
             channel = bot.get_channel(DISCORD_CHANNEL_ID)
+
             for obj in new_files:
                 filename = obj['Key']
                 size_mb, timestamp = get_file_metadata(obj)
