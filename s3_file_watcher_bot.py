@@ -18,6 +18,7 @@ AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 S3_ENDPOINT = os.getenv("S3_ENDPOINT")
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
+BUCKET_ID = os.getenv("BUCKET_ID")  # NEW: used in download URL
 
 # JSON file to persist sent files
 SENT_FILES_PATH = "sent_files.json"
@@ -56,8 +57,8 @@ def get_file_metadata(obj):
     return size_mb, int(created_time)
 
 def build_download_url(filename):
-    """Construct the public Contabo download URL."""
-    return f"{S3_ENDPOINT}/{AWS_ACCESS_KEY_ID}:{S3_BUCKET_NAME}/{filename}"
+    """Construct the public Contabo download URL using BUCKET_ID."""
+    return f"{S3_ENDPOINT}/{BUCKET_ID}:{S3_BUCKET_NAME}/{filename}"
 
 async def send_file_embed(channel, filename, size_mb, timestamp, download_url):
     """Send a rich embed to the Discord channel."""
